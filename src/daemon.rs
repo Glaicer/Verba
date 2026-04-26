@@ -3,7 +3,7 @@ use crate::{app_runtime::AppRuntime, config::ConfigStore, error::Result, gui, ip
 pub async fn run() -> Result<()> {
     let store = ConfigStore::default_path()?;
     let config = store.load_or_create()?;
-    let runtime = AppRuntime::new(config.ui.last_preset_id.clone());
+    let runtime = AppRuntime::from_config(config.clone());
 
     let server_runtime = runtime.clone();
     let server = tokio::spawn(async move { ipc::server::serve(server_runtime).await });
