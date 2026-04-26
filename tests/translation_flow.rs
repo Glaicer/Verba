@@ -140,6 +140,58 @@ async fn translation_should_notify_critical_for_forbidden_provider_response() {
     assert_eq!(notifier.last_urgency(), Some(Urgency::Critical));
 }
 
+#[tokio::test]
+async fn translation_should_notify_critical_for_missing_provider_response() {
+    let server = OneShotServer::new(
+        "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 7\r\n\r\nmissing",
+    );
+    let runtime = AppRuntime::from_config(config_with_model(&server.base_url()));
+    let notifier = RecordingNotifier::default();
+
+    let outcome = runtime
+        .translate_text(
+            &SecretStub::with_key("sk-test"),
+            &notifier,
+            "Hello",
+            "German",
+            "precise",
+        )
+        .await
+        .expect("provider failure should become user outcome");
+
+    assert_eq!(
+        outcome,
+        TranslationOutcome::failure("Provider returned 404. Check base URL and model name.")
+    );
+    assert_eq!(notifier.last_urgency(), Some(Urgency::Critical));
+}
+
+#[tokio::test]
+async fn translation_should_notify_normal_for_provider_overload() {
+    let server = OneShotServer::new(
+        "HTTP/1.1 529 Site Overloaded\r\nContent-Type: text/plain\r\nContent-Length: 10\r\n\r\noverloaded",
+    );
+    let runtime = AppRuntime::from_config(config_with_model(&server.base_url()));
+    let notifier = RecordingNotifier::default();
+
+    let outcome = runtime
+        .translate_text(
+            &SecretStub::with_key("sk-test"),
+            &notifier,
+            "Hello",
+            "German",
+            "precise",
+        )
+        .await
+        .expect("provider failure should become user outcome");
+
+    assert_eq!(
+        outcome,
+        TranslationOutcome::failure("Provider returned 529. Try again later.")
+    );
+    assert_eq!(notifier.last_urgency(), Some(Urgency::Normal));
+}
+
 fn config_with_model(base_url: &str) -> AppConfig {
     let mut config = AppConfig::default();
     config.provider.base_url = base_url.to_string();

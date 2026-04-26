@@ -55,7 +55,7 @@ fn runtime_properties_should_expose_specified_ipc_values() {
 #[test]
 fn ipc_constants_should_match_specification() {
     assert_eq!(constants::SERVICE_NAME, "dev.aronov.Verba");
-    assert_eq!(constants::OBJECT_PATH, "/io/github/example/Verba");
+    assert_eq!(constants::OBJECT_PATH, "/dev/aronov/Verba");
     assert_eq!(constants::INTERFACE_NAME, "dev.aronov.Verba");
 }
 

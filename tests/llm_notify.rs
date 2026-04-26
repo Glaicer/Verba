@@ -113,6 +113,96 @@ async fn llm_client_should_reject_missing_message_content() {
     assert_eq!(err.kind(), LlmErrorKind::InvalidResponse);
 }
 
+#[tokio::test]
+async fn llm_client_should_map_404_response() {
+    let err = translate_with_response(
+        "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 7\r\n\r\nmissing",
+    )
+    .await;
+
+    assert_eq!(err.kind(), LlmErrorKind::NotFound);
+}
+
+#[tokio::test]
+async fn llm_client_should_map_429_response() {
+    let err = translate_with_response(
+        "HTTP/1.1 429 Too Many Requests\r\nContent-Type: text/plain\r\nContent-Length: 9\r\n\r\nslow down",
+    )
+    .await;
+
+    assert_eq!(err.kind(), LlmErrorKind::RateLimited);
+}
+
+#[tokio::test]
+async fn llm_client_should_map_529_response() {
+    let err = translate_with_response(
+        "HTTP/1.1 529 Site Overloaded\r\nContent-Type: text/plain\r\nContent-Length: 10\r\n\r\noverloaded",
+    )
+    .await;
+
+    assert_eq!(err.kind(), LlmErrorKind::ProviderOverloaded);
+}
+
+#[tokio::test]
+async fn llm_client_should_map_500_response() {
+    let err = translate_with_response(
+        "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain\r\nContent-Length: 12\r\n\r\nserver error",
+    )
+    .await;
+
+    assert_eq!(err.kind(), LlmErrorKind::ServerError);
+}
+
+#[tokio::test]
+async fn llm_client_should_reject_invalid_json() {
+    let err = translate_with_response(
+        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 8\r\n\r\nnot json",
+    )
+    .await;
+
+    assert_eq!(err.kind(), LlmErrorKind::InvalidResponse);
+}
+
+#[tokio::test]
+async fn llm_client_should_reject_missing_choices() {
+    let err = translate_with_response(
+        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}",
+    )
+    .await;
+
+    assert_eq!(err.kind(), LlmErrorKind::InvalidResponse);
+}
+
+#[tokio::test]
+async fn llm_client_should_map_timeout() {
+    let server = HangingServer::new();
+    let mut config = AppConfig::default();
+    config.provider.base_url = server.base_url();
+    config.provider.model_name = "test-model".to_string();
+    config.provider.timeout_secs = 1;
+    let client = LlmClient::new(config.provider.clone()).expect("client should build");
+
+    let err = client
+        .translate("secret", "German", &config.presets[0], "Hello world")
+        .await
+        .expect_err("hanging server should time out");
+
+    assert_eq!(err.kind(), LlmErrorKind::Timeout);
+}
+
+async fn translate_with_response(response: &'static str) -> LlmError {
+    let server = OneShotServer::new(response);
+    let mut config = AppConfig::default();
+    config.provider.base_url = server.base_url();
+    config.provider.model_name = "test-model".to_string();
+    let client = LlmClient::new(config.provider.clone()).expect("client should build");
+
+    client
+        .translate("secret", "German", &config.presets[0], "Hello world")
+        .await
+        .expect_err("response should fail")
+}
+
 struct OneShotServer {
     base_url: String,
     handle: thread::JoinHandle<String>,
@@ -161,5 +251,42 @@ impl OneShotServer {
 
     fn request(self) -> String {
         self.handle.join().expect("test server should finish")
+    }
+}
+
+struct HangingServer {
+    base_url: String,
+    handle: Option<thread::JoinHandle<()>>,
+}
+
+impl HangingServer {
+    fn new() -> Self {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("test server should bind");
+        let addr = listener
+            .local_addr()
+            .expect("test server address should exist");
+        let handle = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("test request should connect");
+            let mut buf = [0_u8; 4096];
+            let _ = stream.read(&mut buf);
+            thread::sleep(Duration::from_secs(2));
+        });
+
+        Self {
+            base_url: format!("http://{addr}"),
+            handle: Some(handle),
+        }
+    }
+
+    fn base_url(&self) -> String {
+        self.base_url.clone()
+    }
+}
+
+impl Drop for HangingServer {
+    fn drop(&mut self) {
+        if let Some(handle) = self.handle.take() {
+            let _ = handle.join();
+        }
     }
 }

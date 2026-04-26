@@ -3,7 +3,7 @@ pub mod main_window;
 pub mod preset_editor;
 pub mod settings_dialog;
 
-use gtk4::{prelude::*, Application};
+use gtk4::{gio, prelude::*, Application};
 
 use crate::{
     app_runtime::AppRuntime,
@@ -11,9 +11,12 @@ use crate::{
     secrets::secret_service::SecretServiceStore,
 };
 
+pub const APPLICATION_ID: &str = "dev.aronov.Verba.Gui";
+
 pub fn run(config: AppConfig, store: ConfigStore, runtime: AppRuntime) {
     let app = Application::builder()
-        .application_id("dev.aronov.Verba")
+        .application_id(APPLICATION_ID)
+        .flags(gio::ApplicationFlags::NON_UNIQUE)
         .build();
 
     let _hold = app.hold();
@@ -59,6 +62,10 @@ pub fn run(config: AppConfig, store: ConfigStore, runtime: AppRuntime) {
 
 pub fn application_args() -> [&'static str; 1] {
     ["verba"]
+}
+
+pub fn application_id() -> &'static str {
+    APPLICATION_ID
 }
 
 pub fn present_window_on_startup() -> bool {

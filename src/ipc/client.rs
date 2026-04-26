@@ -119,7 +119,7 @@ async fn start_daemon() -> Result<()> {
 #[proxy(
     interface = "dev.aronov.Verba",
     default_service = "dev.aronov.Verba",
-    default_path = "/io/github/example/Verba"
+    default_path = "/dev/aronov/Verba"
 )]
 trait Verba {
     async fn toggle_main_window(&self) -> zbus::Result<()>;

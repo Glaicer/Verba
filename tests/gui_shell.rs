@@ -2,7 +2,7 @@ use verba::{
     config::AppConfig,
     gui::{
         actions::{accelerators_for_action, GuiAction},
-        application_args,
+        application_args, application_id,
         main_window::{default_languages, selected_preset_index},
         present_window_on_startup,
     },
@@ -66,6 +66,11 @@ fn preset_dropdown_should_fall_back_to_first_preset_when_saved_id_is_missing() {
 #[test]
 fn gtk_application_args_should_not_forward_cli_subcommands_as_files() {
     assert_eq!(application_args(), ["verba"]);
+}
+
+#[test]
+fn gtk_application_should_use_distinct_id_from_daemon_service() {
+    assert_eq!(application_id(), "dev.aronov.Verba.Gui");
 }
 
 #[test]
