@@ -1,0 +1,34 @@
+[package]
+name = "verba"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[lib]
+name = "verba"
+path = "src/lib.rs"
+
+[[bin]]
+name = "verba"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+thiserror = "1"
+clap = { version = "4", features = ["derive"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "process"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+url = "2"
+dirs = "5"
+zbus = "4"
+gtk4 = "0.8"
+glib = "0.19"
+gio = "0.19"
+ksni = "0.2"
+secret-service = { version = "4", features = ["rt-tokio-crypto-rust"] }
+uuid = { version = "1", features = ["v4"] }

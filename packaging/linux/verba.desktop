@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Verba
+Comment=Tray-based LLM translation utility
+Exec=verba toggle
+Icon=verba
+Terminal=false
+Categories=Utility;

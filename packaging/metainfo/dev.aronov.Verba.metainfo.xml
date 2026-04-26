@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.aronov.Verba</id>
+  <name>Verba</name>
+  <summary>Tray-based LLM translation utility</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>Apache-2.0</project_license>
+  <description>
+    <p>Verba is a desktop translation utility that runs in the user graphical session and sends translation requests to an OpenAI-compatible chat completions API.</p>
+  </description>
+  <launchable type="desktop-id">verba.desktop</launchable>
+</component>
