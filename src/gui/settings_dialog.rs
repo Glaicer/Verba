@@ -6,6 +6,7 @@ use gtk4::{
 };
 
 use crate::{
+    app_runtime::AppRuntime,
     config::{AppConfig, ConfigStore, Preset},
     error::{Result, VerbaError},
     gui::preset_editor::PresetEditor,
@@ -72,12 +73,13 @@ impl SettingsDialog {
         store: ConfigStore,
         secrets: S,
         config: AppConfig,
+        runtime: AppRuntime,
     ) -> Self
     where
         S: SecretStore + Clone + 'static,
     {
         let key_is_configured = secrets.get_api_key().await.ok().flatten().is_some();
-        Self::build_with_key_state(parent, store, secrets, config, key_is_configured)
+        Self::build_with_key_state(parent, store, secrets, config, runtime, key_is_configured)
     }
 
     fn build_with_key_state<S>(
@@ -85,6 +87,7 @@ impl SettingsDialog {
         store: ConfigStore,
         secrets: S,
         config: AppConfig,
+        runtime: AppRuntime,
         key_is_configured: bool,
     ) -> Self
     where
@@ -150,11 +153,15 @@ impl SettingsDialog {
                 let store = store.clone();
                 let secrets = secrets.clone();
                 let config = config_for_response.clone();
+                let runtime = runtime.clone();
                 let error_label = error_label.clone();
                 let dialog = dialog.clone();
                 glib::MainContext::default().spawn_local(async move {
                     match apply_settings(&store, &secrets, config, draft).await {
-                        Ok(_) => dialog.close(),
+                        Ok(config) => {
+                            runtime.update_config(config);
+                            dialog.close();
+                        }
                         Err(err) => error_label.set_text(&err.to_string()),
                     }
                 });

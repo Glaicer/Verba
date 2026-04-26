@@ -1,4 +1,4 @@
-use std::{cell::Cell, rc::Rc};
+use std::{cell::Cell, rc::Rc, sync::mpsc};
 
 use gtk4::{
     gio,
@@ -13,6 +13,7 @@ use crate::{
     config::{AppConfig, ConfigStore, Preset},
     gui::actions::{accelerators_for_action, GuiAction},
     gui::settings_dialog::SettingsDialog,
+    notify::notify_send::NotifySend,
     secrets::SecretStore,
 };
 
@@ -43,7 +44,7 @@ impl MainWindowController {
         runtime: AppRuntime,
     ) -> Self
     where
-        S: SecretStore + Clone + 'static,
+        S: SecretStore + Clone + Send + Sync + 'static,
     {
         install_accelerators(app);
 
@@ -130,12 +131,12 @@ impl MainWindowController {
 
     pub fn attach_runtime_sync<S>(
         &self,
-        config: AppConfig,
+        _config: AppConfig,
         store: ConfigStore,
         secrets: S,
         runtime: AppRuntime,
     ) where
-        S: SecretStore + Clone + 'static,
+        S: SecretStore + Clone + Send + Sync + 'static,
     {
         let window = self.window.clone();
         let last_state = Rc::new(Cell::new(runtime.state()));
@@ -150,10 +151,12 @@ impl MainWindowController {
                         let parent = window.clone();
                         let store = store.clone();
                         let secrets = secrets.clone();
-                        let config = config.clone();
+                        let config = runtime.config();
+                        let runtime = runtime.clone();
                         glib::MainContext::default().spawn_local(async move {
                             let dialog =
-                                SettingsDialog::build(&parent, store, secrets, config).await;
+                                SettingsDialog::build(&parent, store, secrets, config, runtime)
+                                    .await;
                             dialog.present();
                         });
                     }
@@ -314,9 +317,9 @@ fn wire_buttons(
     close_button: &Button,
     translate_button: &Button,
     status_label: &Label,
-    config: AppConfig,
+    _config: AppConfig,
     store: ConfigStore,
-    secrets: impl SecretStore + Clone + 'static,
+    secrets: impl SecretStore + Clone + Send + Sync + 'static,
     runtime: AppRuntime,
 ) {
     let window_for_close = window.clone();
@@ -328,17 +331,16 @@ fn wire_buttons(
 
     let runtime_for_settings = runtime.clone();
     let parent_for_settings = window.clone();
-    let config_for_settings = config.clone();
     let store_for_settings = store.clone();
     let secrets_for_settings = secrets.clone();
     settings_button.connect_clicked(move |_| {
-        runtime_for_settings.open_settings();
         let parent = parent_for_settings.clone();
-        let config = config_for_settings.clone();
+        let config = runtime_for_settings.config();
         let store = store_for_settings.clone();
         let secrets = secrets_for_settings.clone();
+        let runtime = runtime_for_settings.clone();
         glib::MainContext::default().spawn_local(async move {
-            let dialog = SettingsDialog::build(&parent, store, secrets, config).await;
+            let dialog = SettingsDialog::build(&parent, store, secrets, config, runtime).await;
             dialog.present();
         });
     });
@@ -373,29 +375,78 @@ fn wire_buttons(
     let translate_button_for_translate = translate_button.clone();
     let copy_button_for_translate = copy_button.clone();
     let status_for_translate = status_label.clone();
+    let output_for_translate = output_buffer.clone();
+    let secrets_for_translate = secrets.clone();
     translate_button.connect_clicked(move |_| {
-        let input = input_for_translate.text(
-            &input_for_translate.start_iter(),
-            &input_for_translate.end_iter(),
-            false,
-        );
+        let input = input_for_translate
+            .text(
+                &input_for_translate.start_iter(),
+                &input_for_translate.end_iter(),
+                false,
+            )
+            .to_string();
         if input.trim().is_empty() {
             status_for_translate.set_text("Enter text to translate.");
             return;
         }
-        if language_for_translate.text().trim().is_empty() {
+        let language = language_for_translate.text().to_string();
+        if language.trim().is_empty() {
             status_for_translate.set_text("Enter target language.");
             return;
         }
-        if preset_for_translate.active_id().is_none() {
+        let Some(preset_id) = preset_for_translate.active_id().map(|id| id.to_string()) else {
             status_for_translate.set_text("Select a preset.");
             return;
-        }
+        };
 
-        runtime_for_translate.translate();
         translate_button_for_translate.set_sensitive(false);
         status_for_translate.set_text("Translating…");
         copy_button_for_translate.set_sensitive(false);
+        output_for_translate.set_text("");
+
+        let (sender, receiver) = mpsc::channel();
+        let runtime = runtime_for_translate.clone();
+        let secrets = secrets_for_translate.clone();
+        tokio::spawn(async move {
+            let outcome = runtime
+                .translate_text(&secrets, &NotifySend, &input, &language, &preset_id)
+                .await;
+            let _ = sender.send(outcome);
+        });
+
+        let output_buffer = output_for_translate.clone();
+        let copy_button = copy_button_for_translate.clone();
+        let translate_button = translate_button_for_translate.clone();
+        let status_label = status_for_translate.clone();
+        glib::timeout_add_local(std::time::Duration::from_millis(50), move || match receiver
+            .try_recv()
+        {
+            Ok(Ok(outcome)) => {
+                if let Some(translated_text) = outcome.translated_text {
+                    output_buffer.set_text(&translated_text);
+                    status_label.set_text("");
+                    copy_button.set_sensitive(true);
+                } else if let Some(message) = outcome.message {
+                    status_label.set_text(&message);
+                    copy_button.set_sensitive(false);
+                }
+                translate_button.set_sensitive(true);
+                glib::ControlFlow::Break
+            }
+            Ok(Err(err)) => {
+                status_label.set_text(&err.to_string());
+                copy_button.set_sensitive(false);
+                translate_button.set_sensitive(true);
+                glib::ControlFlow::Break
+            }
+            Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
+            Err(mpsc::TryRecvError::Disconnected) => {
+                status_label.set_text("Translation task stopped.");
+                copy_button.set_sensitive(false);
+                translate_button.set_sensitive(true);
+                glib::ControlFlow::Break
+            }
+        });
     });
 
     add_action(window, GuiAction::Translate, {
