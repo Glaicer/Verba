@@ -117,6 +117,10 @@ impl Tray for VerbaTray {
     }
 
     fn icon_theme_path(&self) -> String {
+        let system_icon_dir = PathBuf::from("/usr/share/icons/hicolor/scalable/apps");
+        if system_icon_dir.join("verba.svg").exists() {
+            return system_icon_dir.to_string_lossy().into_owned();
+        }
         Self::icon_theme_path_static()
             .to_string_lossy()
             .into_owned()
