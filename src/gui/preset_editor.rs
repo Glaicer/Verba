@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use gtk4::{
-    prelude::*, ApplicationWindow, Box as GtkBox, Button, Dialog, Entry, Label, Orientation,
+    prelude::*, ApplicationWindow, Box as GtkBox, Button, Dialog, Entry, Frame, Label, Orientation,
     ResponseType, ScrolledWindow, TextBuffer, TextView, WrapMode,
 };
 use uuid::Uuid;
@@ -105,14 +105,15 @@ impl PresetEditor {
             .build();
         dialog.add_button("Cancel", ResponseType::Cancel);
         dialog.add_button("Save", ResponseType::Accept);
+        pad_dialog_buttons(&dialog);
 
         let root = GtkBox::builder()
             .orientation(Orientation::Vertical)
             .spacing(8)
             .margin_top(12)
-            .margin_bottom(12)
+            .margin_bottom(16)
             .margin_start(12)
-            .margin_end(12)
+            .margin_end(16)
             .build();
 
         let rows = GtkBox::builder()
@@ -130,6 +131,8 @@ impl PresetEditor {
         scroll.set_child(Some(&rows));
 
         let add_button = Button::with_label("Add");
+        add_button.set_halign(gtk4::Align::Center);
+        add_button.set_width_request(96);
         let error_label = Label::new(None);
         error_label.add_css_class("error");
         error_label.set_xalign(0.0);
@@ -141,6 +144,7 @@ impl PresetEditor {
 
         let rows_for_add = rows.clone();
         let row_widgets_for_add = row_widgets.clone();
+        let scroll_for_add = scroll.clone();
         add_button.connect_clicked(move |_| {
             append_row(
                 &rows_for_add,
@@ -151,6 +155,10 @@ impl PresetEditor {
                     instruction: "Describe the translation style.".to_string(),
                 },
             );
+            let adjustment = scroll_for_add.vadjustment();
+            glib::idle_add_local_once(move || {
+                adjustment.set_value(adjustment.upper() - adjustment.page_size());
+            });
         });
 
         let staged_for_response = staged_presets.clone();
@@ -194,6 +202,7 @@ fn append_row(rows: &GtkBox, row_widgets: &Rc<RefCell<Vec<PresetRow>>>, preset: 
     let container = GtkBox::builder()
         .orientation(Orientation::Vertical)
         .spacing(6)
+        .margin_end(12)
         .build();
 
     let header = GtkBox::builder()
@@ -212,17 +221,25 @@ fn append_row(rows: &GtkBox, row_widgets: &Rc<RefCell<Vec<PresetRow>>>, preset: 
         .buffer(&instruction_buffer)
         .wrap_mode(WrapMode::WordChar)
         .vexpand(false)
-        .height_request(96)
+        .height_request(56)
         .build();
+    instruction_view.set_top_margin(6);
+    instruction_view.set_bottom_margin(6);
+    instruction_view.set_left_margin(8);
+    instruction_view.set_right_margin(8);
     let scroll = ScrolledWindow::builder()
         .hexpand(true)
-        .min_content_height(96)
+        .min_content_height(56)
         .build();
     scroll.set_child(Some(&instruction_view));
 
     container.append(&header);
-    container.append(&Label::new(Some("Instruction")));
-    container.append(&scroll);
+    let instruction_label = Label::new(Some("Instruction"));
+    instruction_label.set_xalign(0.0);
+    let instruction_frame = Frame::builder().hexpand(true).build();
+    instruction_frame.set_child(Some(&scroll));
+    container.append(&instruction_label);
+    container.append(&instruction_frame);
     rows.append(&container);
 
     let row = PresetRow {
@@ -247,6 +264,23 @@ fn append_row(rows: &GtkBox, row_widgets: &Rc<RefCell<Vec<PresetRow>>>, preset: 
             row.container.unparent();
         }
     });
+}
+
+fn pad_dialog_buttons(dialog: &Dialog) {
+    for response in [ResponseType::Cancel, ResponseType::Accept] {
+        if let Some(button) = dialog.widget_for_response(response) {
+            button.set_margin_top(8);
+            button.set_margin_bottom(12);
+        }
+    }
+
+    if let Some(cancel) = dialog.widget_for_response(ResponseType::Cancel) {
+        cancel.set_margin_end(4);
+    }
+    if let Some(save) = dialog.widget_for_response(ResponseType::Accept) {
+        save.set_margin_start(4);
+        save.set_margin_end(12);
+    }
 }
 
 fn collect_rows(rows: &[PresetRow]) -> Result<Vec<Preset>> {

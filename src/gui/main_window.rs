@@ -4,8 +4,8 @@ use gtk4::{
     gio,
     glib::{self, Propagation},
     prelude::*,
-    Application, ApplicationWindow, Box as GtkBox, Button, ComboBoxText, Entry, Label, Orientation,
-    ScrolledWindow, Separator, TextBuffer, TextView, WrapMode,
+    Application, ApplicationWindow, Box as GtkBox, Button, ComboBoxText, Entry, Frame, Label,
+    Orientation, ScrolledWindow, Separator, TextBuffer, TextView, WrapMode,
 };
 
 use crate::{
@@ -56,7 +56,8 @@ impl MainWindowController {
             .build();
 
         let language_entry = Entry::builder()
-            .hexpand(true)
+            .hexpand(false)
+            .width_chars(24)
             .text(&config.ui.last_language)
             .build();
         language_entry.set_placeholder_text(Some("English"));
@@ -70,6 +71,7 @@ impl MainWindowController {
             .hexpand(true)
             .vexpand(true)
             .build();
+        set_text_area_padding(&input_view);
 
         let output_buffer = TextBuffer::new(None);
         let output_view = TextView::builder()
@@ -80,6 +82,7 @@ impl MainWindowController {
             .hexpand(true)
             .vexpand(true)
             .build();
+        set_text_area_padding(&output_view);
 
         let status_label = Label::new(None);
         status_label.set_xalign(0.0);
@@ -236,14 +239,24 @@ fn build_layout(
         .margin_end(12)
         .build();
 
-    let top_bar = GtkBox::builder()
+    let language_bar = GtkBox::builder()
         .orientation(Orientation::Horizontal)
         .spacing(8)
         .build();
-    top_bar.append(&Label::new(Some("Translate to")));
-    top_bar.append(language_entry);
-    top_bar.append(&Label::new(Some("Preset")));
-    top_bar.append(preset_combo);
+    language_bar.append(&Label::new(Some("Translate to")));
+    language_bar.append(language_entry);
+    let preset_spacer = GtkBox::builder().width_request(24).build();
+    language_bar.append(&preset_spacer);
+    language_bar.append(&Label::new(Some("Preset")));
+    language_bar.append(preset_combo);
+
+    let control_bar = GtkBox::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(8)
+        .build();
+    let control_spacer = GtkBox::builder().hexpand(true).build();
+    control_bar.append(&control_spacer);
+    control_bar.append(copy_button);
 
     let text_pane = GtkBox::builder()
         .orientation(Orientation::Horizontal)
@@ -251,22 +264,8 @@ fn build_layout(
         .hexpand(true)
         .vexpand(true)
         .build();
-    text_pane.append(&scrolled(input_view));
-
-    let output_box = GtkBox::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(4)
-        .hexpand(true)
-        .vexpand(true)
-        .build();
-    let copy_bar = GtkBox::builder()
-        .orientation(Orientation::Horizontal)
-        .halign(gtk4::Align::End)
-        .build();
-    copy_bar.append(copy_button);
-    output_box.append(&copy_bar);
-    output_box.append(&scrolled(output_view));
-    text_pane.append(&output_box);
+    text_pane.append(&text_area_block("Original", input_view));
+    text_pane.append(&text_area_block("Translation", output_view));
 
     let bottom_bar = GtkBox::builder()
         .orientation(Orientation::Horizontal)
@@ -278,11 +277,30 @@ fn build_layout(
     bottom_bar.append(close_button);
     bottom_bar.append(translate_button);
 
-    root.append(&top_bar);
+    root.append(&language_bar);
+    root.append(&control_bar);
     root.append(&text_pane);
     root.append(&Separator::new(Orientation::Horizontal));
     root.append(&bottom_bar);
     root
+}
+
+fn text_area_block(label: &str, view: &TextView) -> GtkBox {
+    let block = GtkBox::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(4)
+        .hexpand(true)
+        .vexpand(true)
+        .build();
+
+    let label = Label::new(Some(label));
+    label.set_xalign(0.0);
+    block.append(&label);
+
+    let frame = Frame::builder().hexpand(true).vexpand(true).build();
+    frame.set_child(Some(&scrolled(view)));
+    block.append(&frame);
+    block
 }
 
 fn scrolled(view: &TextView) -> ScrolledWindow {
@@ -294,6 +312,13 @@ fn scrolled(view: &TextView) -> ScrolledWindow {
         .build();
     scroll.set_child(Some(view));
     scroll
+}
+
+fn set_text_area_padding(view: &TextView) {
+    view.set_top_margin(8);
+    view.set_bottom_margin(8);
+    view.set_left_margin(8);
+    view.set_right_margin(8);
 }
 
 fn wire_close_to_hide(window: &ApplicationWindow, runtime: AppRuntime) {

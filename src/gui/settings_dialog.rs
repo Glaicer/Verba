@@ -97,9 +97,12 @@ impl SettingsDialog {
             .title("Settings")
             .modal(true)
             .transient_for(parent)
+            .default_width(560)
+            .default_height(320)
             .build();
         dialog.add_button("Cancel", ResponseType::Cancel);
         dialog.add_button("Save", ResponseType::Accept);
+        pad_dialog_buttons(&dialog);
 
         let base_url_entry = Entry::builder()
             .hexpand(true)
@@ -119,10 +122,10 @@ impl SettingsDialog {
         let content = GtkBox::builder()
             .orientation(Orientation::Vertical)
             .spacing(10)
-            .margin_top(12)
-            .margin_bottom(12)
-            .margin_start(12)
-            .margin_end(12)
+            .margin_top(16)
+            .margin_bottom(16)
+            .margin_start(16)
+            .margin_end(16)
             .build();
         content.append(&field_row("LLM Provider base url", &base_url_entry));
         content.append(&field_row("Model Name", &model_entry));
@@ -219,4 +222,21 @@ fn field_row(label: &str, input: &impl IsA<gtk4::Widget>) -> GtkBox {
     row.append(&label);
     row.append(input);
     row
+}
+
+fn pad_dialog_buttons(dialog: &Dialog) {
+    for response in [ResponseType::Cancel, ResponseType::Accept] {
+        if let Some(button) = dialog.widget_for_response(response) {
+            button.set_margin_top(8);
+            button.set_margin_bottom(12);
+        }
+    }
+
+    if let Some(cancel) = dialog.widget_for_response(ResponseType::Cancel) {
+        cancel.set_margin_end(4);
+    }
+    if let Some(save) = dialog.widget_for_response(ResponseType::Accept) {
+        save.set_margin_start(4);
+        save.set_margin_end(12);
+    }
 }
