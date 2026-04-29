@@ -55,12 +55,20 @@ impl MainWindowController {
             .default_height(config.ui.window_height)
             .build();
 
-        let language_entry = Entry::builder()
+        let language_entry = ComboBoxText::builder()
+            .has_entry(true)
             .hexpand(false)
-            .width_chars(24)
-            .text(&config.ui.last_language)
             .build();
-        language_entry.set_placeholder_text(Some("English"));
+        language_entry.append(None, "English");
+        language_entry.append(None, "Russian");
+        if let Some(entry) = language_entry
+            .child()
+            .and_downcast::<Entry>()
+        {
+            entry.set_width_chars(24);
+            entry.set_placeholder_text(Some("English"));
+            entry.set_text(&config.ui.last_language);
+        }
 
         let preset_combo = build_preset_dropdown(&config.presets, selected_preset_index(&config));
 
@@ -83,10 +91,38 @@ impl MainWindowController {
             .vexpand(true)
             .build();
         set_text_area_padding(&output_view);
+        output_view.add_css_class("translation-empty");
+
+        let provider = gtk4::CssProvider::new();
+        provider.load_from_data(
+            ".translation-empty text { background-color: #f8f8f8; }",
+        );
+        gtk4::style_context_add_provider_for_display(
+            &gtk4::gdk::Display::default().expect("display"),
+            &provider,
+            gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
+        {
+            let output_view_ref = output_view.clone();
+            let output_buffer_ref = output_buffer.clone();
+            output_buffer.connect_changed(move |_| {
+                let text = output_buffer_ref.text(
+                    &output_buffer_ref.start_iter(),
+                    &output_buffer_ref.end_iter(),
+                    false,
+                );
+                if text.is_empty() {
+                    output_view_ref.add_css_class("translation-empty");
+                } else {
+                    output_view_ref.remove_css_class("translation-empty");
+                }
+            });
+        }
 
         let status_label = Label::new(None);
         status_label.set_xalign(0.0);
 
+        let clear_button = Button::with_label("Clear");
         let copy_button = Button::with_label("Copy");
         copy_button.set_sensitive(false);
 
@@ -99,6 +135,7 @@ impl MainWindowController {
             &preset_combo,
             &input_view,
             &output_view,
+            &clear_button,
             &copy_button,
             &settings_button,
             &close_button,
@@ -114,6 +151,7 @@ impl MainWindowController {
             &preset_combo,
             &input_buffer,
             &output_buffer,
+            &clear_button,
             &copy_button,
             &settings_button,
             &close_button,
@@ -220,10 +258,11 @@ fn build_preset_dropdown(presets: &[Preset], active: Option<u32>) -> ComboBoxTex
 
 #[allow(clippy::too_many_arguments)]
 fn build_layout(
-    language_entry: &Entry,
+    language_entry: &ComboBoxText,
     preset_combo: &ComboBoxText,
     input_view: &TextView,
     output_view: &TextView,
+    clear_button: &Button,
     copy_button: &Button,
     settings_button: &Button,
     close_button: &Button,
@@ -256,6 +295,7 @@ fn build_layout(
         .build();
     let control_spacer = GtkBox::builder().hexpand(true).build();
     control_bar.append(&control_spacer);
+    control_bar.append(clear_button);
     control_bar.append(copy_button);
 
     let text_pane = GtkBox::builder()
@@ -333,10 +373,11 @@ fn wire_close_to_hide(window: &ApplicationWindow, runtime: AppRuntime) {
 #[allow(clippy::too_many_arguments)]
 fn wire_buttons(
     window: &ApplicationWindow,
-    language_entry: &Entry,
+    language_entry: &ComboBoxText,
     preset_combo: &ComboBoxText,
     input_buffer: &TextBuffer,
     output_buffer: &TextBuffer,
+    clear_button: &Button,
     copy_button: &Button,
     settings_button: &Button,
     close_button: &Button,
@@ -393,6 +434,13 @@ fn wire_buttons(
     let copy_result_button = copy_result.clone();
     copy_button.connect_clicked(move |_| copy_result_button());
 
+    let output_for_clear = output_buffer.clone();
+    let copy_button_for_clear = copy_button.clone();
+    clear_button.connect_clicked(move |_| {
+        output_for_clear.set_text("");
+        copy_button_for_clear.set_sensitive(false);
+    });
+
     let runtime_for_translate = runtime.clone();
     let input_for_translate = input_buffer.clone();
     let language_for_translate = language_entry.clone();
@@ -414,7 +462,11 @@ fn wire_buttons(
             status_for_translate.set_text("Enter text to translate.");
             return;
         }
-        let language = language_for_translate.text().to_string();
+        let language = language_for_translate
+            .child()
+            .and_downcast::<Entry>()
+            .map(|e| e.text().to_string())
+            .unwrap_or_default();
         if language.trim().is_empty() {
             status_for_translate.set_text("Enter target language.");
             return;
