@@ -122,9 +122,29 @@ impl MainWindowController {
         let status_label = Label::new(None);
         status_label.set_xalign(0.0);
 
-        let clear_button = Button::with_label("Clear");
+        let input_clear_button = Button::with_label("Clear");
+        input_clear_button.set_sensitive(false);
+        let output_clear_button = Button::with_label("Clear");
+        output_clear_button.set_sensitive(false);
         let copy_button = Button::with_label("Copy");
         copy_button.set_sensitive(false);
+
+        {
+            let btn = input_clear_button.clone();
+            let buf = input_buffer.clone();
+            input_buffer.connect_changed(move |_| {
+                let text = buf.text(&buf.start_iter(), &buf.end_iter(), false);
+                btn.set_sensitive(!text.is_empty());
+            });
+        }
+        {
+            let btn = output_clear_button.clone();
+            let buf = output_buffer.clone();
+            output_buffer.connect_changed(move |_| {
+                let text = buf.text(&buf.start_iter(), &buf.end_iter(), false);
+                btn.set_sensitive(!text.is_empty());
+            });
+        }
 
         let settings_button = Button::with_label("Settings");
         let close_button = Button::with_label("Close");
@@ -135,7 +155,8 @@ impl MainWindowController {
             &preset_combo,
             &input_view,
             &output_view,
-            &clear_button,
+            &input_clear_button,
+            &output_clear_button,
             &copy_button,
             &settings_button,
             &close_button,
@@ -151,7 +172,8 @@ impl MainWindowController {
             &preset_combo,
             &input_buffer,
             &output_buffer,
-            &clear_button,
+            &input_clear_button,
+            &output_clear_button,
             &copy_button,
             &settings_button,
             &close_button,
@@ -262,7 +284,8 @@ fn build_layout(
     preset_combo: &ComboBoxText,
     input_view: &TextView,
     output_view: &TextView,
-    clear_button: &Button,
+    input_clear_button: &Button,
+    output_clear_button: &Button,
     copy_button: &Button,
     settings_button: &Button,
     close_button: &Button,
@@ -294,8 +317,9 @@ fn build_layout(
         .spacing(8)
         .build();
     let control_spacer = GtkBox::builder().hexpand(true).build();
+    control_bar.append(input_clear_button);
     control_bar.append(&control_spacer);
-    control_bar.append(clear_button);
+    control_bar.append(output_clear_button);
     control_bar.append(copy_button);
 
     let text_pane = GtkBox::builder()
@@ -377,7 +401,8 @@ fn wire_buttons(
     preset_combo: &ComboBoxText,
     input_buffer: &TextBuffer,
     output_buffer: &TextBuffer,
-    clear_button: &Button,
+    input_clear_button: &Button,
+    output_clear_button: &Button,
     copy_button: &Button,
     settings_button: &Button,
     close_button: &Button,
@@ -434,9 +459,14 @@ fn wire_buttons(
     let copy_result_button = copy_result.clone();
     copy_button.connect_clicked(move |_| copy_result_button());
 
+    let input_for_clear = input_buffer.clone();
+    input_clear_button.connect_clicked(move |_| {
+        input_for_clear.set_text("");
+    });
+
     let output_for_clear = output_buffer.clone();
     let copy_button_for_clear = copy_button.clone();
-    clear_button.connect_clicked(move |_| {
+    output_clear_button.connect_clicked(move |_| {
         output_for_clear.set_text("");
         copy_button_for_clear.set_sensitive(false);
     });
