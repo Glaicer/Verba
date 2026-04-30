@@ -1,4 +1,8 @@
-use std::{cell::Cell, rc::Rc, sync::mpsc};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+    sync::mpsc,
+};
 
 use gtk4::{
     gio,
@@ -33,6 +37,7 @@ const DEFAULT_LANGUAGES: [&str; 10] = [
 #[derive(Clone, Debug)]
 pub struct MainWindowController {
     window: ApplicationWindow,
+    preset_combo: ComboBoxText,
 }
 
 impl MainWindowController {
@@ -173,7 +178,10 @@ impl MainWindowController {
             runtime,
         );
 
-        Self { window }
+        Self {
+            window,
+            preset_combo,
+        }
     }
 
     pub fn present(&self) {
@@ -190,7 +198,9 @@ impl MainWindowController {
         S: SecretStore + Clone + Send + Sync + 'static,
     {
         let window = self.window.clone();
+        let preset_combo = self.preset_combo.clone();
         let last_state = Rc::new(Cell::new(runtime.state()));
+        let last_presets = Rc::new(RefCell::new(runtime.config().presets));
         glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
             let state = runtime.state();
             if state != last_state.get() {
@@ -214,6 +224,12 @@ impl MainWindowController {
                     AppState::Exiting | AppState::CancellingThenExit => {}
                 }
                 last_state.set(state);
+            }
+
+            let config = runtime.config();
+            if preset_dropdown_needs_refresh(&last_presets.borrow(), &config) {
+                refresh_preset_dropdown(&preset_combo, &config);
+                *last_presets.borrow_mut() = config.presets;
             }
 
             if runtime.is_exiting() {
@@ -264,6 +280,27 @@ fn build_preset_dropdown(presets: &[Preset], active: Option<u32>) -> ComboBoxTex
     }
     combo.set_active(active);
     combo
+}
+
+fn preset_dropdown_needs_refresh(current_presets: &[Preset], config: &AppConfig) -> bool {
+    current_presets != config.presets.as_slice()
+}
+
+fn refresh_preset_dropdown(combo: &ComboBoxText, config: &AppConfig) {
+    let active_id = combo.active_id().map(|id| id.to_string());
+    combo.remove_all();
+    for preset in &config.presets {
+        combo.append(Some(&preset.id), &preset.name);
+    }
+
+    if active_id
+        .as_deref()
+        .is_some_and(|id| config.presets.iter().any(|preset| preset.id == id))
+    {
+        combo.set_active_id(active_id.as_deref());
+    } else {
+        combo.set_active(selected_preset_index(config));
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -623,7 +660,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::translation_empty_css;
+    use crate::config::Preset;
+
+    use super::{preset_dropdown_needs_refresh, translation_empty_css};
 
     #[test]
     fn translation_empty_css_should_use_light_empty_background() {
@@ -639,5 +678,25 @@ mod tests {
             translation_empty_css(true),
             ".translation-empty text { background-color: #2d2d2d; }"
         );
+    }
+
+    #[test]
+    fn preset_dropdown_should_refresh_when_runtime_presets_change() {
+        let mut config = crate::config::AppConfig::default();
+        let current_presets = config.presets.clone();
+        config.presets.push(Preset {
+            id: "developer".to_string(),
+            name: "Developer".to_string(),
+            instruction: "Preserve code terms.".to_string(),
+        });
+
+        assert!(preset_dropdown_needs_refresh(&current_presets, &config));
+    }
+
+    #[test]
+    fn preset_dropdown_should_not_refresh_when_runtime_presets_match() {
+        let config = crate::config::AppConfig::default();
+
+        assert!(!preset_dropdown_needs_refresh(&config.presets, &config));
     }
 }
