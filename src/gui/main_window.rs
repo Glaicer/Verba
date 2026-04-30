@@ -61,10 +61,7 @@ impl MainWindowController {
             .build();
         language_entry.append(None, "English");
         language_entry.append(None, "Russian");
-        if let Some(entry) = language_entry
-            .child()
-            .and_downcast::<Entry>()
-        {
+        if let Some(entry) = language_entry.child().and_downcast::<Entry>() {
             entry.set_width_chars(24);
             entry.set_placeholder_text(Some("English"));
             entry.set_text(&config.ui.last_language);
@@ -92,16 +89,7 @@ impl MainWindowController {
             .build();
         set_text_area_padding(&output_view);
         output_view.add_css_class("translation-empty");
-
-        let provider = gtk4::CssProvider::new();
-        provider.load_from_data(
-            ".translation-empty text { background-color: #f8f8f8; }",
-        );
-        gtk4::style_context_add_provider_for_display(
-            &gtk4::gdk::Display::default().expect("display"),
-            &provider,
-            gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
-        );
+        install_translation_empty_css();
         {
             let output_view_ref = output_view.clone();
             let output_buffer_ref = output_buffer.clone();
@@ -385,6 +373,50 @@ fn set_text_area_padding(view: &TextView) {
     view.set_right_margin(8);
 }
 
+fn install_translation_empty_css() {
+    let provider = gtk4::CssProvider::new();
+    if let Some(settings) = gtk4::Settings::default() {
+        load_translation_empty_css(&provider, settings_prefers_dark(&settings));
+
+        let provider_for_preference = provider.clone();
+        settings.connect_gtk_application_prefer_dark_theme_notify(move |settings| {
+            load_translation_empty_css(&provider_for_preference, settings_prefers_dark(settings));
+        });
+
+        let provider_for_theme = provider.clone();
+        settings.connect_gtk_theme_name_notify(move |settings| {
+            load_translation_empty_css(&provider_for_theme, settings_prefers_dark(settings));
+        });
+    } else {
+        load_translation_empty_css(&provider, false);
+    }
+
+    gtk4::style_context_add_provider_for_display(
+        &gtk4::gdk::Display::default().expect("display"),
+        &provider,
+        gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
+}
+
+fn load_translation_empty_css(provider: &gtk4::CssProvider, is_dark: bool) {
+    provider.load_from_data(translation_empty_css(is_dark));
+}
+
+fn translation_empty_css(is_dark: bool) -> &'static str {
+    if is_dark {
+        ".translation-empty text { background-color: #2d2d2d; }"
+    } else {
+        ".translation-empty text { background-color: #f8f8f8; }"
+    }
+}
+
+fn settings_prefers_dark(settings: &gtk4::Settings) -> bool {
+    settings.is_gtk_application_prefer_dark_theme()
+        || settings
+            .gtk_theme_name()
+            .is_some_and(|theme| theme.to_ascii_lowercase().contains("dark"))
+}
+
 fn wire_close_to_hide(window: &ApplicationWindow, runtime: AppRuntime) {
     let runtime_for_close = runtime.clone();
     window.connect_close_request(move |window| {
@@ -587,4 +619,25 @@ where
         .activate(move |_, _, _| callback())
         .build();
     window.add_action_entries([entry]);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::translation_empty_css;
+
+    #[test]
+    fn translation_empty_css_should_use_light_empty_background() {
+        assert_eq!(
+            translation_empty_css(false),
+            ".translation-empty text { background-color: #f8f8f8; }"
+        );
+    }
+
+    #[test]
+    fn translation_empty_css_should_use_dark_empty_background() {
+        assert_eq!(
+            translation_empty_css(true),
+            ".translation-empty text { background-color: #2d2d2d; }"
+        );
+    }
 }
