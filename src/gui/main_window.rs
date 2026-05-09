@@ -21,23 +21,11 @@ use crate::{
     secrets::SecretStore,
 };
 
-const DEFAULT_LANGUAGES: [&str; 10] = [
-    "English",
-    "Russian",
-    "German",
-    "French",
-    "Spanish",
-    "Chinese",
-    "Japanese",
-    "Korean",
-    "Italian",
-    "Portuguese",
-];
-
 #[derive(Clone, Debug)]
 pub struct MainWindowController {
     window: ApplicationWindow,
     preset_combo: ComboBoxText,
+    language_entry: ComboBoxText,
 }
 
 impl MainWindowController {
@@ -64,8 +52,7 @@ impl MainWindowController {
             .has_entry(true)
             .hexpand(false)
             .build();
-        language_entry.append(None, "English");
-        language_entry.append(None, "Russian");
+        populate_language_combo(&language_entry, &config.languages);
         if let Some(entry) = language_entry.child().and_downcast::<Entry>() {
             entry.set_width_chars(24);
             entry.set_placeholder_text(Some("English"));
@@ -181,6 +168,7 @@ impl MainWindowController {
         Self {
             window,
             preset_combo,
+            language_entry,
         }
     }
 
@@ -199,8 +187,10 @@ impl MainWindowController {
     {
         let window = self.window.clone();
         let preset_combo = self.preset_combo.clone();
+        let language_entry = self.language_entry.clone();
         let last_state = Rc::new(Cell::new(runtime.state()));
         let last_presets = Rc::new(RefCell::new(runtime.config().presets));
+        let last_languages = Rc::new(RefCell::new(runtime.config().languages));
         glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
             let state = runtime.state();
             if state != last_state.get() {
@@ -232,6 +222,11 @@ impl MainWindowController {
                 *last_presets.borrow_mut() = config.presets;
             }
 
+            if language_combo_needs_refresh(&last_languages.borrow(), &config.languages) {
+                refresh_language_combo(&language_entry, &config.languages);
+                *last_languages.borrow_mut() = config.languages;
+            }
+
             if runtime.is_exiting() {
                 glib::ControlFlow::Break
             } else {
@@ -239,10 +234,6 @@ impl MainWindowController {
             }
         });
     }
-}
-
-pub fn default_languages() -> &'static [&'static str] {
-    &DEFAULT_LANGUAGES
 }
 
 pub fn selected_preset_index(config: &AppConfig) -> Option<u32> {
@@ -300,6 +291,31 @@ fn refresh_preset_dropdown(combo: &ComboBoxText, config: &AppConfig) {
         combo.set_active_id(active_id.as_deref());
     } else {
         combo.set_active(selected_preset_index(config));
+    }
+}
+
+fn populate_language_combo(combo: &ComboBoxText, languages: &[String]) {
+    for lang in languages {
+        combo.append(None, lang);
+    }
+}
+
+fn language_combo_needs_refresh(current: &[String], new: &[String]) -> bool {
+    current != new
+}
+
+fn refresh_language_combo(combo: &ComboBoxText, languages: &[String]) {
+    let current_text = combo
+        .child()
+        .and_downcast::<Entry>()
+        .map(|e| e.text().to_string())
+        .unwrap_or_default();
+    combo.remove_all();
+    for lang in languages {
+        combo.append(None, lang);
+    }
+    if let Some(entry) = combo.child().and_downcast::<Entry>() {
+        entry.set_text(&current_text);
     }
 }
 

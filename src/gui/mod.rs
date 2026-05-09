@@ -1,4 +1,5 @@
 pub mod actions;
+pub mod language_editor;
 pub mod main_window;
 pub mod preset_editor;
 pub mod settings_dialog;

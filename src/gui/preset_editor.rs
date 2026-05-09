@@ -156,7 +156,7 @@ impl PresetEditor {
                 },
             );
             let adjustment = scroll_for_add.vadjustment();
-            glib::idle_add_local_once(move || {
+            glib::timeout_add_local_once(std::time::Duration::from_millis(50), move || {
                 adjustment.set_value(adjustment.upper() - adjustment.page_size());
             });
         });

@@ -3,26 +3,26 @@ use verba::{
     gui::{
         actions::{accelerators_for_action, GuiAction},
         application_args, application_id,
-        main_window::{default_languages, selected_preset_index},
+        main_window::selected_preset_index,
         present_window_on_startup,
     },
 };
 
 #[test]
 fn gui_should_offer_common_default_languages() {
+    let config = AppConfig::default();
     assert_eq!(
-        default_languages(),
+        config.languages,
         [
             "English",
-            "Russian",
-            "German",
-            "French",
             "Spanish",
-            "Chinese",
+            "French",
+            "German",
+            "Russian",
+            "Chinese (simpl.)",
+            "Chinese (trad.)",
             "Japanese",
             "Korean",
-            "Italian",
-            "Portuguese"
         ]
     );
 }

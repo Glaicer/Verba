@@ -12,6 +12,7 @@ const CHAT_COMPLETIONS_PATH: &str = "/v1/chat/completions";
 pub fn validate(config: &mut AppConfig) -> Result<()> {
     validate_provider(config)?;
     validate_presets(config)?;
+    validate_languages(config)?;
     Ok(())
 }
 
@@ -88,6 +89,33 @@ fn validate_presets(config: &AppConfig) -> Result<()> {
             return Err(VerbaError::Config(
                 "preset instruction is required".to_string(),
             ));
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_languages(config: &AppConfig) -> Result<()> {
+    if config.languages.is_empty() {
+        return Err(VerbaError::Config(
+            "at least one language is required".to_string(),
+        ));
+    }
+
+    let mut names = HashSet::new();
+    for lang in &config.languages {
+        let trimmed = lang.trim();
+        if trimmed.is_empty() {
+            return Err(VerbaError::Config(
+                "language name cannot be empty".to_string(),
+            ));
+        }
+        let normalized = trimmed.to_ascii_lowercase();
+        if !names.insert(normalized) {
+            return Err(VerbaError::Config(format!(
+                "duplicate language `{}`",
+                trimmed
+            )));
         }
     }
 

@@ -6,7 +6,24 @@ use crate::error::Result;
 pub struct AppConfig {
     pub provider: ProviderConfig,
     pub ui: UiConfig,
+    #[serde(default)]
     pub presets: Vec<Preset>,
+    #[serde(default = "default_languages")]
+    pub languages: Vec<String>,
+}
+
+fn default_languages() -> Vec<String> {
+    vec![
+        "English".to_string(),
+        "Spanish".to_string(),
+        "French".to_string(),
+        "German".to_string(),
+        "Russian".to_string(),
+        "Chinese (simpl.)".to_string(),
+        "Chinese (trad.)".to_string(),
+        "Japanese".to_string(),
+        "Korean".to_string(),
+    ]
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -73,6 +90,7 @@ impl Default for AppConfig {
                     instruction: "Use a formal and professional tone.".to_string(),
                 },
             ],
+            languages: default_languages(),
         }
     }
 }

@@ -9,6 +9,7 @@ use crate::{
     app_runtime::AppRuntime,
     config::{AppConfig, ConfigStore, Preset},
     error::{Result, VerbaError},
+    gui::language_editor::LanguageEditor,
     gui::preset_editor::PresetEditor,
     secrets::SecretStore,
 };
@@ -26,6 +27,7 @@ pub struct SettingsDraft {
     pub model_name: String,
     pub api_key: ApiKeyEdit,
     pub presets: Vec<Preset>,
+    pub languages: Vec<String>,
 }
 
 impl SettingsDraft {
@@ -35,6 +37,7 @@ impl SettingsDraft {
             model_name: config.provider.model_name.clone(),
             api_key: ApiKeyEdit::Unchanged,
             presets: config.presets.clone(),
+            languages: config.languages.clone(),
         }
     }
 
@@ -57,6 +60,7 @@ impl SettingsDraft {
         config.provider.base_url = self.base_url.trim().to_string();
         config.provider.model_name = self.model_name.trim().to_string();
         config.presets = self.presets.clone();
+        config.languages = self.languages.clone();
         config.validate()?;
         Ok(config)
     }
@@ -130,8 +134,15 @@ impl SettingsDialog {
         content.append(&field_row("LLM Provider base url", &base_url_entry));
         content.append(&field_row("Model Name", &model_entry));
         content.append(&field_row("API Key", &api_key_entry));
-        let configure_presets_button = Button::with_label("Configure Presets");
-        content.append(&configure_presets_button);
+        let configure_presets_button = Button::with_label("Presets");
+        let configure_languages_button = Button::with_label("Languages");
+        let buttons_row = GtkBox::builder()
+            .orientation(Orientation::Horizontal)
+            .spacing(8)
+            .build();
+        buttons_row.append(&configure_presets_button);
+        buttons_row.append(&configure_languages_button);
+        content.append(&buttons_row);
         content.append(&error_label);
         dialog.content_area().append(&content);
 
@@ -143,6 +154,20 @@ impl SettingsDialog {
             editor.present();
         });
 
+        let parent_for_languages = parent.clone();
+        let store_for_languages = store.clone();
+        let runtime_for_languages = runtime.clone();
+        let config_for_languages = config.clone();
+        configure_languages_button.connect_clicked(move |_| {
+            let editor = LanguageEditor::build(
+                &parent_for_languages,
+                store_for_languages.clone(),
+                runtime_for_languages.clone(),
+                config_for_languages.clone(),
+            );
+            editor.present();
+        });
+
         let config_for_response = config.clone();
         dialog.connect_response(move |dialog, response| {
             if response == ResponseType::Accept {
@@ -151,6 +176,7 @@ impl SettingsDialog {
                     model_name: model_entry.text().to_string(),
                     api_key: api_key_edit_from_entry(&api_key_entry),
                     presets: staged_presets.borrow().clone(),
+                    languages: runtime.config().languages,
                 };
 
                 let store = store.clone();

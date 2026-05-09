@@ -96,6 +96,7 @@ fn valid_draft() -> SettingsDraft {
         model_name: "test-model".to_string(),
         api_key: ApiKeyEdit::Unchanged,
         presets: AppConfig::default().presets,
+        languages: AppConfig::default().languages,
     }
 }
 
