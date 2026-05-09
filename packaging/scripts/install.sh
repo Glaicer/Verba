@@ -8,8 +8,6 @@ APPLICATIONS_DIR="${APPLICATIONS_DIR:-$PREFIX/share/applications}"
 ICONS_DIR="${ICONS_DIR:-$PREFIX/share/icons/hicolor/scalable/apps}"
 METAINFO_DIR="${METAINFO_DIR:-$PREFIX/share/metainfo}"
 
-cargo build --release
-
 $SUDO install -Dm755 target/release/verba "$PREFIX/bin/verba"
 $SUDO install -Dm644 packaging/systemd/verba.service "$SYSTEMD_USER_DIR/verba.service"
 $SUDO install -Dm644 packaging/linux/verba.desktop "$APPLICATIONS_DIR/verba.desktop"
