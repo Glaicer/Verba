@@ -2,10 +2,19 @@
 
 Verba is a Rust GTK desktop translation utility for Ubuntu. It runs as a `systemd --user` daemon, shows a tray icon, stores your API key in Secret Service, and sends translation requests to an OpenAI-compatible `/v1/chat/completions` API.
 
+## Features
+
+- Translation via any OpenAI-compatible API
+- `verba toggle` — show/hide the window, ideal for binding a global hotkey
+- Presets and a built-in preset editor
+
 ## Installation
 
-The installer is still in progress. Until it ships, use the manual installation
-steps below.
+Download the latest `.deb` from and install:
+
+```bash
+sudo dpkg -i verba_1.0.0_amd64.deb
+```
 
 ## Commands
 
@@ -21,6 +30,8 @@ verba quit
 `verba daemon` runs the user service. The other commands control the running daemon through the D-Bus session bus.
 
 ## Manual installation
+
+Requires Rust toolchain (`cargo`), GTK 4 development libraries, and `pkg-config`.
 
 From the repository root:
 
@@ -40,10 +51,4 @@ when it needs to install files, but `systemctl --user` must run as your graphica
 
 ```bash
 PREFIX=/tmp/verba-install SUDO= packaging/scripts/install.sh
-```
-
-## Uninstall
-
-```bash
-packaging/scripts/uninstall.sh
 ```
