@@ -2,6 +2,10 @@
 
 Verba is a Rust GTK desktop translation utility for Ubuntu. It runs as a `systemd --user` daemon, shows a tray icon, stores your API key in Secret Service, and sends translation requests to an OpenAI-compatible `/v1/chat/completions` API.
 
+<p align="center">
+    <img src="resources/verba_screenshot.png" alt="Verba translation utility" width="auto" height="375" />
+</p>
+
 ## Features
 
 - Translation via any OpenAI-compatible API
