@@ -12,9 +12,17 @@ Verba is a Rust GTK desktop translation utility for Ubuntu. It runs as a `system
 - `verba toggle` — show/hide the window, ideal for binding a global hotkey
 - Presets and a built-in preset editor
 
+## Hotkeys
+
+- `Ctrl+Enter` - translate.
+- `Ctrl+Shift+C` - copy result.
+- `Ctrl+L` - focus language selector
+- `Ctrl+P` - focus preset selector
+- `Esc` - hide Verba window
+
 ## Installation
 
-Download the latest `.deb` from and install:
+Download the latest `.deb` from releases section and install:
 
 ```bash
 sudo dpkg -i verba_1.0.0_amd64.deb
