@@ -65,6 +65,19 @@ cat > "$STAGING/DEBIAN/postinst" <<'EOF'
 set -e
 if [ "$1" = "configure" ]; then
     systemctl --user daemon-reload || true
+
+    REAL_USER="${SUDO_USER:-}"
+    if [ -z "$REAL_USER" ]; then
+        REAL_USER=$(getent passwd | while IFS=: read -r u _ uid _ _ _ _; do
+            if [ "$uid" -ge 1000 ] && [ "$uid" -lt 65534 ]; then echo "$u"; break; fi
+        done)
+    fi
+
+    if [ -n "$REAL_USER" ] && [ "$(id -u)" = "0" ] && [ "$REAL_USER" != "root" ]; then
+        if ! runuser -u "$REAL_USER" -- systemctl --user is-enabled verba.service >/dev/null 2>&1; then
+            runuser -u "$REAL_USER" -- systemctl --user enable --now verba.service || true
+        fi
+    fi
 fi
 EOF
 chmod 755 "$STAGING/DEBIAN/postinst"
@@ -73,6 +86,17 @@ cat > "$STAGING/DEBIAN/postrm" <<'EOF'
 #!/bin/sh
 set -e
 if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
+    REAL_USER="${SUDO_USER:-}"
+    if [ -z "$REAL_USER" ]; then
+        REAL_USER=$(getent passwd | while IFS=: read -r u _ uid _ _ _ _; do
+            if [ "$uid" -ge 1000 ] && [ "$uid" -lt 65534 ]; then echo "$u"; break; fi
+        done)
+    fi
+
+    if [ -n "$REAL_USER" ] && [ "$(id -u)" = "0" ] && [ "$REAL_USER" != "root" ]; then
+        runuser -u "$REAL_USER" -- systemctl --user disable --now verba.service || true
+    fi
+
     systemctl --user daemon-reload || true
 fi
 EOF
