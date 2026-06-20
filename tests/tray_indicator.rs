@@ -4,6 +4,18 @@ use verba::{
 };
 
 #[test]
+fn tray_should_not_require_appindicator_c_libraries() {
+    let cargo_toml = std::fs::read_to_string("Cargo.toml").expect("Cargo.toml should be readable");
+    let cargo_lock = std::fs::read_to_string("Cargo.lock").expect("Cargo.lock should be readable");
+    let deps = format!("{cargo_toml}\n{cargo_lock}");
+
+    assert!(deps.contains("ksni"));
+    assert!(!deps.contains("libappindicator"));
+    assert!(!deps.contains("libayatana"));
+    assert!(!deps.contains("tray-icon"));
+}
+
+#[test]
 fn tray_contract_should_match_plan() {
     assert_eq!(VerbaTray::icon_name_static(), "verba");
     assert_eq!(

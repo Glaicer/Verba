@@ -1,6 +1,6 @@
 # Verba
 
-Verba is a Rust GTK desktop translation utility for Ubuntu. It runs as a `systemd --user` daemon, shows a tray icon, stores your API key in Secret Service, and sends translation requests to an OpenAI-compatible `/v1/chat/completions` API.
+Verba is a Rust GTK desktop translation utility for Ubuntu and Fedora. It runs as a `systemd --user` daemon, shows a tray icon, stores your API key in Secret Service, and sends translation requests to an OpenAI-compatible `/v1/chat/completions` API.
 
 <p align="center">
     <img src="resources/verba_screenshot.png" alt="Verba translation utility" width="auto" height="375" />
@@ -22,11 +22,27 @@ Verba is a Rust GTK desktop translation utility for Ubuntu. It runs as a `system
 
 ## Installation
 
-Download the latest `.deb` from releases section and install:
+Download the latest `.deb` or `.rpm` from the releases section and install.
+
+Run to make Verba start with system:
 
 ```bash
-sudo dpkg -i verba_1.0.0_amd64.deb
+systemctl --user enable --now verba.service
 ```
+
+## API configuration
+
+Open Settings and enter:
+
+- Base URL: the provider API root.
+- Model: the provider's exact model ID.
+- API key: stored in Secret Service.
+
+Examples:
+
+- OpenRouter base URL: `https://openrouter.ai/api`
+
+Verba appends `/v1/chat/completions` automatically.
 
 ## Commands
 
@@ -43,7 +59,19 @@ verba quit
 
 ## Manual installation
 
-Requires Rust toolchain (`cargo`), GTK 4 development libraries, and `pkg-config`.
+Requires Rust toolchain (`cargo`), GTK 4 development libraries, `pkg-config`, and D-Bus development headers.
+
+Ubuntu:
+
+```bash
+sudo apt install build-essential pkg-config libgtk-4-dev libdbus-1-dev
+```
+
+Fedora:
+
+```bash
+sudo dnf install gcc pkg-config gtk4-devel dbus-devel
+```
 
 From the repository root:
 
