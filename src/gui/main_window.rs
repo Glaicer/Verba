@@ -428,21 +428,7 @@ fn set_text_area_padding(view: &TextView) {
 
 fn install_translation_empty_css() {
     let provider = gtk4::CssProvider::new();
-    if let Some(settings) = gtk4::Settings::default() {
-        load_translation_empty_css(&provider, settings_prefers_dark(&settings));
-
-        let provider_for_preference = provider.clone();
-        settings.connect_gtk_application_prefer_dark_theme_notify(move |settings| {
-            load_translation_empty_css(&provider_for_preference, settings_prefers_dark(settings));
-        });
-
-        let provider_for_theme = provider.clone();
-        settings.connect_gtk_theme_name_notify(move |settings| {
-            load_translation_empty_css(&provider_for_theme, settings_prefers_dark(settings));
-        });
-    } else {
-        load_translation_empty_css(&provider, false);
-    }
+    provider.load_from_data(translation_empty_css());
 
     gtk4::style_context_add_provider_for_display(
         &gtk4::gdk::Display::default().expect("display"),
@@ -451,23 +437,8 @@ fn install_translation_empty_css() {
     );
 }
 
-fn load_translation_empty_css(provider: &gtk4::CssProvider, is_dark: bool) {
-    provider.load_from_data(translation_empty_css(is_dark));
-}
-
-fn translation_empty_css(is_dark: bool) -> &'static str {
-    if is_dark {
-        ".translation-empty text { background-color: #2d2d2d; }"
-    } else {
-        ".translation-empty text { background-color: #f8f8f8; }"
-    }
-}
-
-fn settings_prefers_dark(settings: &gtk4::Settings) -> bool {
-    settings.is_gtk_application_prefer_dark_theme()
-        || settings
-            .gtk_theme_name()
-            .is_some_and(|theme| theme.to_ascii_lowercase().contains("dark"))
+fn translation_empty_css() -> &'static str {
+    ".translation-empty text { background-color: @theme_base_color; }"
 }
 
 fn wire_close_to_hide(window: &ApplicationWindow, runtime: AppRuntime) {
@@ -681,18 +652,10 @@ mod tests {
     use super::{preset_dropdown_needs_refresh, translation_empty_css};
 
     #[test]
-    fn translation_empty_css_should_use_light_empty_background() {
+    fn translation_empty_css_should_use_theme_background() {
         assert_eq!(
-            translation_empty_css(false),
-            ".translation-empty text { background-color: #f8f8f8; }"
-        );
-    }
-
-    #[test]
-    fn translation_empty_css_should_use_dark_empty_background() {
-        assert_eq!(
-            translation_empty_css(true),
-            ".translation-empty text { background-color: #2d2d2d; }"
+            translation_empty_css(),
+            ".translation-empty text { background-color: @theme_base_color; }"
         );
     }
 
